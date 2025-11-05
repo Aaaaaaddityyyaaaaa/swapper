@@ -1,0 +1,32 @@
+.header {
+  display: flex;
+  justify-content: space-between; /* links left, title right */
+  align-items: center;
+  padding: 15px 30px;
+  background-color: #ffffff; /* white background */
+  border-bottom: 1px solid #ccc;
+}
+
+/* Navigation links on the left */
+.nav-links {
+  display: flex;
+  gap: 20px;
+}
+
+/* Links styling: black, no underline */
+.nav-links a {
+  color: #000000;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nav-links a:hover {
+  color: #3b82f6; /* optional hover color */
+}
+
+/* Title on the right */
+.header-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
