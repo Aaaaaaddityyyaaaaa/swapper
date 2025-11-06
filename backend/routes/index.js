@@ -29,6 +29,6 @@ router.use("/swap", authMiddleware, swap);
 router.use("/swap-requests", authMiddleware, swapRequestsRoutes);
 
 // ✅ Marketplace routes
-router.use("/", marketplaceRoutes); // mounts /marketplace and /swap-request
+router.use(marketplaceRoutes); // mounts /marketplace and /swap-request
 
 export default router;
