@@ -3,8 +3,8 @@ import auth from "./auth.js";
 import swap from "./swap.js";
 import create from "./create.js";
 import task from "./task.js";
-import eventRoutes from "./event.js"; 
-import swapRequestsRoutes from "./swapRequests.js"; 
+import eventRoutes from "./get-event.js"; 
+import swapRequestsRoutes from "./swap-req.js"; 
 import marketplaceRoutes from "./get-marketplace.js"; // ✅ import marketplace routes
 
 import { authMiddleware } from "../middleware/authMiddleware.js";
@@ -20,7 +20,7 @@ router.use("/event", authMiddleware, eventRoutes);
 router.use("/create", create);
 
 // Tasks
-router.use("/task", authMiddleware, task);
+router.use("/event", authMiddleware, task);
 
 // Swap actions
 router.use("/swap", authMiddleware, swap);

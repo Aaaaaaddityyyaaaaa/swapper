@@ -5,7 +5,7 @@ import { authMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.get("/event", authMiddleware, async (req, res) => {
+router.get("/get", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
 

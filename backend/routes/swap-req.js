@@ -80,4 +80,34 @@ router.put("/swap/:swapId", authMiddleware, async (req, res) => {
   }
 });
 
+
+// DELETE /api/event/:eventId
+router.delete("/:eventId", authMiddleware, async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const userId = req.user.id;
+
+    const userEventDoc = await Event.findOne({ user: userId });
+    if (!userEventDoc) {
+      return res.status(404).json({ message: "No events found for this user." });
+    }
+
+    // Remove the specific sub-event from events[]
+    const eventIndex = userEventDoc.events.findIndex(
+      (e) => e._id.toString() === eventId
+    );
+    if (eventIndex === -1) {
+      return res.status(404).json({ message: "Event not found." });
+    }
+
+    userEventDoc.events.splice(eventIndex, 1);
+    await userEventDoc.save();
+
+    res.json({ message: "Event deleted successfully." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error." });
+  }
+});
+
 export default router;

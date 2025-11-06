@@ -1,24 +1,18 @@
-import { useState } from "react";
-import { useLoaderData, Navigate ,useNavigate} from "react-router";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 
-// src/loaders/dashboardLoader.js
 export const dashboardLoader = async () => {
   const token = localStorage.getItem("token");
 
-  if (!token) {
-    // Not logged in, redirect to login
-    return { redirect: "/login" };
-  }
+  if (!token) return { redirect: "/login" };
 
   try {
-    // Fetch events
-    const eventsRes = await fetch("http://localhost:5000/api/event", {
+    const eventsRes = await fetch("http://localhost:5000/api/event/get", {
       headers: { Authorization: `Bearer ${token}` },
     });
     const eventsData = await eventsRes.json();
 
-    // Fetch swap requests
-    const swapRes = await fetch("http://localhost:5000/api/swap-requests", {
+    const swapRes = await fetch("http://localhost:5000/api/swap/swap/all", {
       headers: { Authorization: `Bearer ${token}` },
     });
     const swapData = await swapRes.json();
@@ -34,12 +28,12 @@ export const dashboardLoader = async () => {
   }
 };
 
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [isSwappable, setIsSwappable] = useState(false);
   const [events, setEvents] = useState([]);
   const [receivedRequests, setReceivedRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
@@ -50,13 +44,13 @@ export default function Dashboard() {
 
     const fetchData = async () => {
       try {
-        const eventsRes = await fetch("http://localhost:5000/api/event", {
+        const eventsRes = await fetch("http://localhost:5000/api/event/get", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const eventsData = await eventsRes.json();
         setEvents(eventsData.events || []);
 
-        const swapRes = await fetch("http://localhost:5000/api/swap-requests", {
+        const swapRes = await fetch("http://localhost:5000/api/swap/swap/all", {
           headers: { Authorization: `Bearer ${token}` },
         });
         const swapData = await swapRes.json();
@@ -69,33 +63,75 @@ export default function Dashboard() {
     fetchData();
   }, [token, navigate]);
 
-  // Create new event
+  // ✅ Create new event
   const handleCreateEvent = async (e) => {
     e.preventDefault();
+
+    const now = new Date();
+    if (new Date(startTime) < now || new Date(endTime) < now) {
+      alert("You cannot select a past date/time!");
+      return;
+    }
+
     try {
-      const res = await fetch("http://localhost:5000/api/event", {
+      const res = await fetch("http://localhost:5000/api/event/event", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ title, startTime, endTime }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title, startTime, endTime, isSwappable }),
       });
+
       const data = await res.json();
       if (res.ok) {
         setEvents([...events, ...data.data.events.slice(-1)]);
-        setTitle(""); setStartTime(""); setEndTime("");
-      } else alert(data.message || "Error creating event");
+        setTitle("");
+        setStartTime("");
+        setEndTime("");
+        setIsSwappable(false);
+      } else {
+        alert(data.message || "Error creating event");
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Accept / Reject swap request
+  // ✅ Delete event
+  const handleDeleteEvent = async (eventId) => {
+    if (!window.confirm("Are you sure you want to delete this event?")) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/swap-requests/${eventId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setEvents(events.filter((e) => e._id !== eventId));
+      } else {
+        alert(data.message || "Error deleting event");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleSwapResponse = async (swapId, action) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/swap/${swapId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action }),
-      });
+      const res = await fetch(
+        `http://localhost:5000/api/swap-requests/swap/${swapId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ action }),
+        }
+      );
       if (res.ok) window.location.reload();
       else {
         const data = await res.json();
@@ -106,11 +142,12 @@ export default function Dashboard() {
     }
   };
 
-  const isPending = (eventId) => {
-    return sentRequests.some(
+  const isPending = (eventId) =>
+    sentRequests.some(
       (r) => r.requesterEvent._id === eventId && r.status === "PENDING"
     );
-  };
+
+  const minDateTime = new Date().toISOString().slice(0, 16);
 
   return (
     <div className="dashboard">
@@ -118,10 +155,41 @@ export default function Dashboard() {
       <div className="create-event">
         <h2>Create Event</h2>
         <form onSubmit={handleCreateEvent}>
-          <input type="text" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-          <input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
-          <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
-          <button type="submit">Create</button>
+          <input
+            type="text"
+            placeholder="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+
+          <input
+            type="datetime-local"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            min={minDateTime}
+            required
+          />
+          <input
+            type="datetime-local"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            min={minDateTime}
+            required
+          />
+
+          <label style={{ display: "block", marginTop: "8px" }}>
+            <input
+              type="checkbox"
+              checked={isSwappable}
+              onChange={(e) => setIsSwappable(e.target.checked)}
+            />{" "}
+            Make this event swappable
+          </label>
+
+          <button type="submit" style={{ marginTop: "10px" }}>
+            Create
+          </button>
         </form>
       </div>
 
@@ -131,7 +199,12 @@ export default function Dashboard() {
         <ul>
           {events.map((e) => (
             <li key={e._id}>
-              {e.title} | {new Date(e.startTime).toLocaleString()} - {new Date(e.endTime).toLocaleString()} | {e.isSwappable ? "Swappable" : "Busy"}
+              {e.title} |{" "}
+              {new Date(e.startTime).toLocaleString()} -{" "}
+              {new Date(e.endTime).toLocaleString()} |{" "}
+              {e.isSwappable ? "Swappable" : "Busy"}
+
+              {/* Request Swap Button */}
               {e.isSwappable && (
                 <button
                   disabled={isPending(e._id)}
@@ -143,6 +216,22 @@ export default function Dashboard() {
                   {isPending(e._id) ? "Pending" : "Request Swap"}
                 </button>
               )}
+
+              {/* ✅ Delete Button */}
+              <button
+                onClick={() => handleDeleteEvent(e._id)}
+                style={{
+                  marginLeft: "10px",
+                  backgroundColor: "#ff4d4f",
+                  color: "white",
+                  border: "none",
+                  padding: "4px 8px",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                }}
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>
@@ -155,18 +244,28 @@ export default function Dashboard() {
           {receivedRequests.map((r) => (
             <div key={r._id} className="swap-request">
               <p>
-                {r.requester.username} wants to swap <b>{r.requesterEvent.title}</b> with your <b>{r.receiverEvent.title}</b>
+                {r.requester.username} wants to swap{" "}
+                <b>{r.requesterEvent.title}</b> with your{" "}
+                <b>{r.receiverEvent.title}</b>
               </p>
-              <button onClick={() => handleSwapResponse(r._id, "ACCEPT")}>Accept</button>
-              <button onClick={() => handleSwapResponse(r._id, "REJECT")}>Reject</button>
+              <button onClick={() => handleSwapResponse(r._id, "ACCEPT")}>
+                Accept
+              </button>
+              <button onClick={() => handleSwapResponse(r._id, "REJECT")}>
+                Reject
+              </button>
             </div>
           ))}
         </div>
+
         <div className="sent">
           <h2>Sent Requests</h2>
           {sentRequests.map((r) => (
             <div key={r._id} className="swap-request">
-              <p>You requested to swap <b>{r.requesterEvent.title}</b> with {r.receiver.username}'s <b>{r.receiverEvent.title}</b></p>
+              <p>
+                You requested to swap <b>{r.requesterEvent.title}</b> with{" "}
+                {r.receiver.username}'s <b>{r.receiverEvent.title}</b>
+              </p>
               <p>Status: {r.status}</p>
             </div>
           ))}

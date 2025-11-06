@@ -13,7 +13,7 @@ export default function Signup() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:5000/api/create", {
+      const res = await fetch("http://localhost:5000/api/create/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),
